@@ -21,6 +21,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var (
+	letters          = [9]string{"A", "B", "C", "D", "E", "F", "G", "H", "I"}
+	rowLetterSets    = [3][3]string{{"A", "B", "C"}, {"D", "E", "F"}, {"G", "H", "I"}}
+	rowNumberSets    = [3][3]int{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}
+	columnLetterSets = [3][3]string{{"A", "D", "G"}, {"B", "E", "H"}, {"C", "F", "I"}}
+	columnNumberSets = [3][3]int{{1, 4, 7}, {2, 5, 8}, {3, 6, 9}}
+)
+
 // Sudoku implementation of a Sudoku puzzle solver. The particular puzzle being
 // solved here has been taken straight from the wikipedia page.
 // Puzzle: https://en.wikipedia.org/wiki/Sudoku#/media/File:Sudoku_Puzzle_by_L2G-20050714_standardized_layout.svg
@@ -39,13 +47,11 @@ import (
 // [G7 G8 G9 H7 H8 H9 I7 I8 I9]
 // This solution enforces Arc consistency on all binary constraints in the problem,
 // resulting in a very fast solve
-func TestSudoku(t *testing.T) {
-
+func setup() BackTrackingCSPSolver[int] {
 	// initialize variables
 	vars := make(Variables[int], 0)
 	constraints := make(Constraints[int], 0)
 
-	letters := [9]string{"A", "B", "C", "D", "E", "F", "G", "H", "I"}
 	tenDomain := IntRange(1, 10)
 
 	// configure variables and block constraints
@@ -62,8 +68,6 @@ func TestSudoku(t *testing.T) {
 	}
 
 	// add horizontal constraints
-	rowLetterSets := [3][3]string{{"A", "B", "C"}, {"D", "E", "F"}, {"G", "H", "I"}}
-	rowNumberSets := [3][3]int{{1, 2, 3}, {4, 5, 6}, {7, 8, 9}}
 	for _, letterSet := range rowLetterSets {
 		for _, numberSet := range rowNumberSets {
 			rowVarNames := make(VariableNames, 0)
@@ -79,8 +83,6 @@ func TestSudoku(t *testing.T) {
 	}
 
 	// add vertical constraints
-	columnLetterSets := [3][3]string{{"A", "D", "G"}, {"B", "E", "H"}, {"C", "F", "I"}}
-	columnNumberSets := [3][3]int{{1, 4, 7}, {2, 5, 8}, {3, 6, 9}}
 	for _, letterSet := range columnLetterSets {
 		for _, numberSet := range columnNumberSets {
 			columnVarNames := make(VariableNames, 0)
@@ -131,11 +133,11 @@ func TestSudoku(t *testing.T) {
 
 	// simplify variable domains following initial assignment
 	solver.State.MakeArcConsistent(context.TODO())
-	success, err := solver.Solve(context.TODO()) // run the solution
-	assert.Nil(t, err)
+	return solver
+}
 
-	assert.True(t, success)
-
+func verify(t *testing.T, solver BackTrackingCSPSolver[int]) {
+	t.Helper()
 	// check that we have a valid sudoku solution
 
 	for _, letterSet := range rowLetterSets {
@@ -176,4 +178,20 @@ func TestSudoku(t *testing.T) {
 		assert.Equal(t, 45, sum)
 	}
 
+}
+
+func TestSudoku(t *testing.T) {
+	solver := setup()
+	success, err := solver.Solve(context.TODO()) // run the solution
+	assert.Nil(t, err)
+
+	assert.True(t, success)
+	verify(t, solver)
+}
+
+func BenchmarkSudoku(b *testing.B) {
+	solver := setup()
+	for n := 0; n < b.N; n++ { // TODO: Update to b.Loop() when go.mod is updated to >=1.24.
+		_, _ = solver.Solve(context.TODO())
+	}
 }

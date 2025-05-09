@@ -34,11 +34,12 @@ type VariablesConstraintFunction[T comparable] func(variables *Variables[T]) boo
 
 // AllSatisfied check if a collection of Constraints are satisfied
 func (constraints *Constraints[T]) AllSatisfied(variables *Variables[T]) bool {
-	flag := true
 	for _, constraint := range *constraints {
-		flag = flag && constraint.Satisfied(variables)
+		if !constraint.Satisfied(variables) {
+			return false
+		}
 	}
-	return flag
+	return true
 }
 
 // FilterByName return all constraints related to a particular variable name
@@ -65,27 +66,22 @@ func (constraints *Constraints[T]) FilterByOrder(order int) Constraints[T] {
 
 // Satisfied checks to see if the given Constraint is satisfied by the variables presented
 func (constraint *Constraint[T]) Satisfied(variables *Variables[T]) bool {
-	constraintVariablesSatisfied := true
-	domainSatisfied := true
-
 	for _, varname := range constraint.Vars {
 		// make sure Variables contains an object for each name in Constraint.Vars
-		constraintVariablesSatisfied = constraintVariablesSatisfied && (variables.Contains(varname))
+		if !variables.Contains(varname) {
+			panic(fmt.Sprintf("Insufficient variables provided. Expected %v", constraint.Vars))
+		}
 	}
 
 	for _, variable := range *variables {
 		// make sure each Variable being passed in has a value consistent with its domain or is empty
-		domainSatisfied = domainSatisfied && (variable.Domain.Contains(variable.Value) || variable.Empty)
+		if !(variable.Domain.Contains(variable.Value) || variable.Empty) {
+			panic("Variables do not satisfy the domains given.")
+		}
 
 		if !variable.Domain.Contains(variable.Value) && !variable.Empty {
 			fmt.Printf("Variable %v with domain %v does not support value %v\n", variable.Name, variable.Domain, variable.Value)
 		}
-	}
-	if !constraintVariablesSatisfied {
-		panic(fmt.Sprintf("Insufficient variables provided. Expected %v", constraint.Vars))
-	}
-	if !domainSatisfied {
-		panic("Variables do not satisfy the domains given.")
 	}
 
 	// now finally call the constraint function
